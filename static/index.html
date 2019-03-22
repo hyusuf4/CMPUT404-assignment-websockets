@@ -43,6 +43,32 @@ function debug(str) {
 debug("Test");
 
 world = {};
+// <!-- From AJax assignment -->
+function sendJSONXMLHTTPRequest(url, objects, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState==4) {
+            try {
+                if (xhr.status==200) {
+                    //XXX: parse some JSON from the request!
+                    //XXX: Pass the data to the callback!
+                    var request=JSON.parse(xhr.responseText)
+                    callback(request)
+                }
+            } 
+            catch(e) {
+                alert('Error: ' + e.name);
+            }
+        }
+    };
+    //XXX: POST to a URL
+    //XXX: set the mimetype and the accept headers!
+    // Remember to use application/json !
+    xhr.open('POST',url,true)
+    xhr.setRequestHeader('Content-type','application/json');
+    xhr.setRequestHeader('Accept','aplication/json')
+    xhr.send(JSON.stringify(objects))
+}
 
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
@@ -72,7 +98,7 @@ function prepEntity(entity) {
 function clearFrame() {
     with(context) {
 	moveTo(0,0);
-	fillStyle = "#000";
+	fillStyle = '#f5f5dc';
 	fillRect(0,0,W,H);
     }
 
@@ -123,9 +149,12 @@ function getPosition(e) {
 
 function addEntity(entity, data) {
     world[entity] = data;
-    drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just modified!
+    //XXX: Send a XHTML Request that updates the entity you just  modified!
+    sendJSONXMLHTTPRequest('/entity/'+ entity, data, function(){
+
+    });
 }
+
 var counter = 0;
 function addEntityWithoutName(data) {
     var name = "X"+(counter++)%100;
@@ -231,15 +260,15 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':randomColor()});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':randomColor()});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':randomColor(),
                           'radius':10});
 });
 
@@ -248,12 +277,26 @@ function update() {
     drawFrame();
 }
 
+function randomColor() {
+  var color = [];
+  for (var i = 0; i < 3; i++) {
+    color.push(Math.floor(Math.random() * 256));
+  }
+  return 'rgb(' + color.join(',') + ')';
+}
+
 
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
-    socket.onopen = function() {
+    socket.onopen = function(){
         //XXX: TODO What are you going to do here?
+        sendJSONXMLHTTPRequest('/world',null, function(response){
+            world=response
+    })
+    update()
+  
+        
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +304,19 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
+            console.log("connected")
             //XXX: TODO What are you going to do here?            
+        } catch (e) {
+            alert("socket on message: " + e);
+        }
+        try {
+            debug("WebSocket Recv:" + msg.data);
+            var message = JSON.parse(msg.data);
+            for (key in message) {
+                world[key] = message[key];
+            }
+            drawNextFrame()
+            
         } catch (e) {
             alert("socket on message: " + e);
         }
